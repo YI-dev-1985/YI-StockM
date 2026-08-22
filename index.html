@@ -236,7 +236,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       </div>
       <div id="pwaStatus" style="display:none;margin-top:6px;font-size:0.72rem;color:#64748b;"></div>
       <div style="margin-top:8px; display:inline-block; background:#2563eb; color:white; font-size:0.75rem; font-weight:600; padding:4px 12px; border-radius:20px;">
-        v4.4
+        v4.5
       </div>
       <div style="margin-top:12px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
         <button id="shareAppBtn" type="button" style="background:#10b981; color:white; border:none; padding:10px 16px; border-radius:10px; font-size:0.85rem; font-weight:600; cursor:pointer;">
@@ -396,19 +396,22 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
 
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    if (isIOS) {
+    
+    // PWA/홈 화면 실행 여부 확인
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                         window.navigator.standalone === true;
+
+    // iOS이면서 standalone 모드가 아닐 때만 안내 문구 표시 (홈화면 앱에서는 숨김)
+    if (isIOS && !isStandalone) {
       const notice = document.getElementById('iosNotice');
       if (notice) notice.style.display = 'block';
     }
 
     function initPWA() {
       const status = document.getElementById('pwaStatus');
-      const standalone = window.matchMedia('(display-mode: standalone)').matches ||
-                         window.navigator.standalone === true;
-
       if (status) {
         status.style.display = 'block';
-        status.textContent = standalone
+        status.textContent = isStandalone
           ? '✓ 홈 화면 앱 모드로 실행 중'
           : 'Safari 실행 모드 · 홈 화면에 추가하면 앱처럼 사용할 수 있습니다.';
       }
@@ -620,7 +623,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       document.getElementById('editIndicator').textContent = '(수정 중)';
       document.getElementById('formTitle').textContent = ACCOUNTS[account].name + ' 거래 수정';
 
-      // 화면 갱신 (내역 목록에서 수정 모드 표시를 위해)
       renderAll();
     }
 
@@ -923,7 +925,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       try {
         const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
         const blob = new Blob([htmlContent], { type: 'text/html' });
-        const file = new File([blob], 'Y_CapitalManager_v4.4_iPhone.html', { type: 'text/html' });
+        const file = new File([blob], 'Y_CapitalManager_v4.5_iPhone.html', { type: 'text/html' });
 
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
@@ -937,7 +939,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'Y_CapitalManager_v4.4_iPhone.html';
+        a.download = 'Y_CapitalManager_v4.5_iPhone.html';
         a.click();
         URL.revokeObjectURL(url);
         alert('파일이 다운로드되었습니다.\n카톡으로 보내주세요.');
