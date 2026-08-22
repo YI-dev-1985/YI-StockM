@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+data:text/html;charset=utf-8,<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
@@ -44,7 +44,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
     header h1 { font-size: 1.35rem; font-weight: 700; margin-bottom: 4px; }
     header p { color: var(--text-light); font-size: 0.85rem; }
 
-    /* 원형 차트 */
     .chart-card {
       background: var(--card); border-radius: 16px; padding: 20px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.06); border: 1px solid var(--border);
@@ -68,7 +67,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
     .legend-item { display: flex; align-items: center; gap: 5px; }
     .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
 
-    /* 요약 카드 */
     .summary-cards {
       display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;
     }
@@ -86,7 +84,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
     .summary-card.total .label { color: rgba(255,255,255,0.85); }
     .summary-card.total .amount { font-size: 1.3rem; }
 
-    /* 탭 */
     .tabs {
       display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px;
     }
@@ -101,7 +98,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
     .tab.active[data-account="pension"] { background: var(--pension); }
     .tab.active[data-account="isa"] { background: var(--isa); }
 
-    /* 폼 */
     .form-card {
       background: var(--card); border-radius: 14px; padding: 18px;
       margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
@@ -141,7 +137,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       font-size: 0.85rem; width: auto; border-radius: 8px;
     }
 
-    /* 내역 */
     .history-card {
       background: var(--card); border-radius: 14px; padding: 18px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.06); border: 1px solid var(--border);
@@ -172,32 +167,29 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
     .history-item .amount.minus { color: var(--danger); }
     .empty-state { text-align: center; padding: 36px 16px; color: var(--text-light); font-size: 0.9rem; }
 
-    /* 년도별 */
-    .yearly-card {
-      background: var(--card); border-radius: 14px; padding: 18px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06); border: 1px solid var(--border);
-    }
-    .yearly-card h3 { font-size: 1rem; margin-bottom: 14px; }
-    .yearly-item {
-      background: var(--bg); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
-    }
-    .yearly-item:last-child { margin-bottom: 0; }
-    .yearly-item .year { font-weight: 700; margin-bottom: 8px; font-size: 0.95rem; }
-    .yearly-item .amounts {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; font-size: 0.82rem;
-    }
-    .yearly-item .amounts span { color: var(--text-light); }
-    .yearly-item .amounts strong { color: var(--text); }
-    .yearly-item .total-row {
-      grid-column: 1 / -1; margin-top: 4px; padding-top: 6px;
-      border-top: 1px dashed var(--border); font-weight: 600;
-    }
     .footer { text-align: center; margin-top: 24px; color: var(--text-light); font-size: 0.75rem; }
     .color-dot {
       display: inline-block; width: 8px; height: 8px; border-radius: 50%;
       margin-right: 4px; vertical-align: middle;
     }
     .hidden { display: none !important; }
+
+    .toggle-history-btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 6px;
+      width: 100%;
+      transition: background 0.2s;
+    }
+    .toggle-history-btn:active {
+      background: var(--primary-dark);
+    }
   </style>
 
 <script id="pwa-manifest" type="application/manifest+json">
@@ -225,7 +217,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       </div>
       <div id="pwaStatus" style="display:none;margin-top:6px;font-size:0.72rem;color:#64748b;"></div>
       <div style="margin-top:8px; display:inline-block; background:#2563eb; color:white; font-size:0.75rem; font-weight:600; padding:4px 12px; border-radius:20px;">
-        v4.1 · iPhone Safari 안정화 패치
+        v4.3 · 삭제 중복 팝업 수정
       </div>
       <div style="margin-top:12px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
         <button id="shareAppBtn" type="button" style="background:#10b981; color:white; border:none; padding:10px 16px; border-radius:10px; font-size:0.85rem; font-weight:600; cursor:pointer;">
@@ -255,7 +247,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       <div class="legend" id="chartLegend"></div>
     </div>
 
-    <!-- 요약 -->
+    <!-- 요약 카드 -->
     <div class="summary-cards" id="summaryCards"></div>
 
     <!-- 계좌 탭 -->
@@ -303,19 +295,18 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       <button id="addTransactionBtn" class="btn btn-primary" type="button">추가하기</button>
     </div>
 
-    <!-- 내역 -->
+    <!-- 내역 (토글 가능) -->
     <div class="history-card">
       <h3>
         <span id="historyTitle">CMA 거래 내역</span>
         <span class="account-total">잔액 <strong id="accountTotal">0원</strong></span>
       </h3>
-      <div id="historyTable"></div>
-    </div>
-
-    <!-- 년도별 -->
-    <div class="yearly-card">
-      <h3>년도별 입금 요약 (순입금 기준)</h3>
-      <div id="yearlySummary"></div>
+      <!-- 내역 목록을 감싸는 컨테이너 (토글 대상) -->
+      <div id="historyContainer">
+        <div id="historyTable"></div>
+      </div>
+      <!-- 토글 버튼 -->
+      <button id="toggleHistoryBtn" class="toggle-history-btn" type="button">▲ 내역 접기</button>
     </div>
 
     <div class="footer">데이터는 이 기기에만 저장됩니다</div>
@@ -335,8 +326,8 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
 
     document.getElementById('txDate').valueAsDate = new Date();
 
+    let historyVisible = true;
 
-    // iPhone/Safari 안정화: inline onclick 대신 이벤트 리스너 사용
     function bindButtonEvents() {
       const shareBtn = document.getElementById('shareAppBtn');
       const excelBtn = document.getElementById('exportExcelBtn');
@@ -351,45 +342,31 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       if (backupBtn) backupBtn.addEventListener('click', exportBackup);
       if (restoreBtn) restoreBtn.addEventListener('click', importBackup);
 
-      // 동적으로 생성되는 삭제 버튼은 이벤트 위임으로 처리
+      // 삭제 버튼 이벤트 위임 (click만 사용)
       const history = document.getElementById('historyTable');
       if (history) {
         history.addEventListener('click', (event) => {
           const btn = event.target.closest('.delete-btn');
           if (!btn) return;
+          // 중복 호출 방지: 이미 처리 중이면 무시
+          if (btn.dataset.processing === '1') return;
+          btn.dataset.processing = '1';
           deleteTransaction(btn.dataset.account, Number(btn.dataset.id));
+          // 처리 후 플래그 해제 (setTimeout으로 지연)
+          setTimeout(() => { delete btn.dataset.processing; }, 100);
         });
       }
 
-      // iPhone에서 touch -> click 변환이 지연/누락되는 환경을 보완
-      document.addEventListener('touchend', (event) => {
-        const target = event.target.closest('button');
-        if (!target || target.disabled) return;
-        if (target.dataset.touchHandled === '1') {
-          delete target.dataset.touchHandled;
-          return;
-        }
-        // Safari 정상 동작을 방해하지 않도록 synthetic click은 짧은 지연 후 1회만 수행
-        if (target.dataset.noSyntheticClick === '1') return;
-        target.dataset.touchHandled = '1';
-        setTimeout(() => {
-          if (target.dataset.touchHandled === '1') {
-            delete target.dataset.touchHandled;
-            target.click();
-          }
-        }, 0);
-      }, { passive: true });
+      // 토글 버튼
+      const toggleBtn = document.getElementById('toggleHistoryBtn');
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', toggleHistory);
+      }
 
-      // 일반 click이 발생한 경우 synthetic click을 막음
-      document.addEventListener('click', (event) => {
-        const target = event.target.closest('button');
-        if (target && target.dataset.touchHandled === '1') {
-          delete target.dataset.touchHandled;
-        }
-      }, true);
+      // iPhone 터치 보정 - click 중복 방지를 위해 touchend에서는 아무것도 하지 않음
+      // (터치 후 자연스러운 click 이벤트가 발생하도록 방치)
     }
 
-    // iPhone의 파일 미리보기(Quick Look)에서는 JavaScript가 실행되지 않을 수 있음
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     if (isIOS) {
@@ -397,8 +374,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       if (notice) notice.style.display = 'block';
     }
 
-
-    // ★★★★★ Safari file:// 오류 완벽 방지 (수정된 핵심 함수) ★★★★★
     function initPWA() {
       const status = document.getElementById('pwaStatus');
       const standalone = window.matchMedia('(display-mode: standalone)').matches ||
@@ -411,13 +386,11 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
           : 'Safari 실행 모드 · 홈 화면에 추가하면 앱처럼 사용할 수 있습니다.';
       }
 
-      // ★ file:// 프로토콜에서는 서비스 워커를 아예 등록하지 않음 (Safari 보안 오류 원천 차단)
       if (location.protocol === 'file:') {
         console.log('로컬 파일 실행: 서비스 워커 생략');
         return;
       }
 
-      // HTTPS 또는 localhost 환경에서만 서비스 워커 등록 시도
       if ('serviceWorker' in navigator &&
           (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
         const swCode = `
@@ -438,7 +411,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
             );
           });
         `;
-        // ★ try-catch로 한 번 더 감싸서 혹시 모를 예외도 완벽 차단
         try {
           const blob = new Blob([swCode], {type:'text/javascript'});
           const swUrl = URL.createObjectURL(blob);
@@ -449,7 +421,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       }
     }
 
-    // 앱 데이터 백업/복구: iPhone에서 데이터 이동 시 사용할 수 있음
     function exportBackup() {
       const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
       const url = URL.createObjectURL(blob);
@@ -495,6 +466,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
         document.getElementById('historyTitle').textContent = ACCOUNTS[currentAccount].name + ' 거래 내역';
         updateToAccountOptions();
         renderHistory();
+        applyHistoryVisibility();
       });
     });
 
@@ -549,11 +521,9 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
 
     function loadData() {
       try {
-        // v4 저장 데이터 우선
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) return normalizeData(JSON.parse(saved));
 
-        // 기존 v3 데이터 자동 마이그레이션
         const old = localStorage.getItem('stockDepositData_v3');
         if (old) {
           const migrated = normalizeData(JSON.parse(old));
@@ -561,7 +531,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
           return migrated;
         }
 
-        // 백업 데이터 복구
         const backup = localStorage.getItem(BACKUP_KEY);
         if (backup) return normalizeData(JSON.parse(backup));
       } catch (e) {
@@ -574,7 +543,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       const json = JSON.stringify(data);
       try {
         localStorage.setItem(STORAGE_KEY, json);
-        // 마지막 정상 저장본을 별도 백업
         localStorage.setItem(BACKUP_KEY, json);
       } catch (e) {
         alert('브라우저 저장소에 저장하지 못했습니다. Safari의 비공개 브라우징이 아닌지 확인해주세요.');
@@ -624,14 +592,12 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
         if (amount > bal) {
           if (!confirm(`잔액(${formatMoney(bal)})보다 이동 금액이 큽니다. 계속할까요?`)) return;
         }
-        // 출금 쪽
         data[currentAccount].push({
           id: Date.now() + Math.random(),
           date, amount: -amount,
           memo: memo || `→ ${ACCOUNTS[toAcc].name} 이동`,
           type: 'transfer', to: toAcc
         });
-        // 입금 쪽
         data[toAcc].push({
           id: Date.now() + Math.random() + 0.1,
           date, amount: amount,
@@ -651,7 +617,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
 
     function deleteTransaction(account, id) {
       if (!confirm('이 내역을 삭제할까요?')) return;
-      // 계좌이동인 경우 양쪽 모두 삭제 시도
       const item = data[account].find(i => i.id === id);
       data[account] = data[account].filter(i => i.id !== id);
 
@@ -716,13 +681,11 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
         start += angle;
       });
 
-      // 도넛 구멍
       ctx.beginPath();
       ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
       ctx.fillStyle = '#fff';
       ctx.fill();
 
-      // 범례
       let legendHtml = '';
       keys.forEach((key, i) => {
         const val = totals[key];
@@ -803,58 +766,37 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       document.getElementById('historyTable').innerHTML = html;
     }
 
-    function renderYearly() {
-      const yearMap = {};
-      Object.keys(ACCOUNTS).forEach(acc => {
-        data[acc].forEach(item => {
-          if (item.type !== 'deposit') return; // 순수 입금만
-          const year = item.date.substring(0, 4);
-          if (!yearMap[year]) yearMap[year] = { cma: 0, irp: 0, pension: 0, isa: 0 };
-          yearMap[year][acc] += item.amount;
-        });
-      });
+    function toggleHistory() {
+      historyVisible = !historyVisible;
+      applyHistoryVisibility();
+      const btn = document.getElementById('toggleHistoryBtn');
+      btn.textContent = historyVisible ? '▲ 내역 접기' : '▼ 내역 펼치기';
+    }
 
-      const years = Object.keys(yearMap).sort((a, b) => b.localeCompare(a));
-      if (years.length === 0) {
-        document.getElementById('yearlySummary').innerHTML = `<div class="empty-state">아직 데이터가 없습니다</div>`;
-        return;
+    function applyHistoryVisibility() {
+      const container = document.getElementById('historyContainer');
+      if (container) {
+        container.style.display = historyVisible ? 'block' : 'none';
       }
-
-      const html = years.map(year => {
-        const y = yearMap[year];
-        const total = y.cma + y.irp + y.pension + y.isa;
-        return `
-          <div class="yearly-item">
-            <div class="year">${year}년</div>
-            <div class="amounts">
-              <span>CMA <strong>${formatMoney(y.cma)}</strong></span>
-              <span>IRP <strong>${formatMoney(y.irp)}</strong></span>
-              <span>연금저축 <strong>${formatMoney(y.pension)}</strong></span>
-              <span>ISA <strong>${formatMoney(y.isa)}</strong></span>
-              <span class="total-row">합계 <strong>${formatMoney(total)}</strong></span>
-            </div>
-          </div>
-        `;
-      }).join('');
-      document.getElementById('yearlySummary').innerHTML = html;
     }
 
     function renderAll() {
       drawPieChart();
       renderSummary();
       renderHistory();
-      renderYearly();
+      applyHistoryVisibility();
+      const btn = document.getElementById('toggleHistoryBtn');
+      if (btn) {
+        btn.textContent = historyVisible ? '▲ 내역 접기' : '▼ 내역 펼치기';
+      }
     }
 
-    // HTML 앱 파일 자체를 공유
     async function shareAppFile() {
       try {
-        // 현재 페이지 HTML 전체를 파일로 만듦
         const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
         const blob = new Blob([htmlContent], { type: 'text/html' });
-        const file = new File([blob], 'Y_CapitalManager_v4.1_iPhone.html', { type: 'text/html' });
+        const file = new File([blob], 'Y_CapitalManager_v4.3_iPhone.html', { type: 'text/html' });
 
-        // 모바일 공유 지원 여부 확인
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
@@ -864,26 +806,22 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
           return;
         }
 
-        // 공유 API가 파일을 지원하지 않으면 다운로드로 대체
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'Y_CapitalManager_v4.1_iPhone.html';
+        a.download = 'Y_CapitalManager_v4.3_iPhone.html';
         a.click();
         URL.revokeObjectURL(url);
         alert('파일이 다운로드되었습니다.\n카톡으로 보내주세요.');
       } catch (e) {
-        // 사용자가 취소하거나 오류 시
         if (e.name !== 'AbortError') {
           alert('공유에 실패했습니다. 파일을 직접 다운로드해서 보내주세요.');
         }
       }
     }
 
-    // 엑셀(CSV)로 내보내기
     function exportToExcel() {
       const rows = [];
-      // 헤더
       rows.push(['계좌', '날짜', '유형', '금액', '메모']);
 
       const typeLabel = { deposit: '입금', withdraw: '출금', transfer: '계좌이동' };
@@ -906,7 +844,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
         return;
       }
 
-      // CSV 문자열 생성 (엑셀에서 한글 깨짐 방지용 BOM 추가)
       const bom = '\uFEFF';
       const csvContent = bom + rows.map(row => 
         row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
