@@ -127,7 +127,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
     }
     .btn {
-      width: 100%; padding: 14px; border: none; border-radius: 12px;
+      padding: 14px; border: none; border-radius: 12px;
       font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 4px;
     }
     .btn-primary { background: var(--primary); color: white; }
@@ -135,6 +135,15 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
     .btn-danger {
       background: #fee2e2; color: var(--danger); padding: 8px 14px;
       font-size: 0.85rem; width: auto; border-radius: 8px;
+    }
+    .btn-edit {
+      background: #dbeafe; color: var(--primary); padding: 8px 14px;
+      font-size: 0.85rem; width: auto; border-radius: 8px;
+    }
+    .btn-edit:active { background: #bfdbfe; }
+    .btn-cancel {
+      background: #e2e8f0; color: var(--text); padding: 8px 16px;
+      font-size: 0.9rem; width: auto; border-radius: 10px;
     }
 
     .history-card {
@@ -165,6 +174,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
     .type-badge.transfer { background: #ede9fe; color: #6d28d9; }
     .history-item .amount { font-weight: 700; font-size: 0.95rem; white-space: nowrap; }
     .history-item .amount.minus { color: var(--danger); }
+    .history-item .action-btns { display: flex; gap: 6px; flex-shrink: 0; }
     .empty-state { text-align: center; padding: 36px 16px; color: var(--text-light); font-size: 0.9rem; }
 
     .footer { text-align: center; margin-top: 24px; color: var(--text-light); font-size: 0.75rem; }
@@ -189,6 +199,15 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
     }
     .toggle-history-btn:active {
       background: var(--primary-dark);
+    }
+    .form-actions {
+      display: flex; gap: 8px; margin-top: 4px;
+    }
+    .form-actions .btn { flex: 1; }
+    .form-actions .btn-cancel { flex: 0 0 auto; }
+    #editIndicator {
+      font-size: 0.8rem; color: var(--primary); font-weight: 600;
+      margin-left: 8px;
     }
   </style>
 
@@ -217,7 +236,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       </div>
       <div id="pwaStatus" style="display:none;margin-top:6px;font-size:0.72rem;color:#64748b;"></div>
       <div style="margin-top:8px; display:inline-block; background:#2563eb; color:white; font-size:0.75rem; font-weight:600; padding:4px 12px; border-radius:20px;">
-        v4.3 · 삭제 중복 팝업 수정
+        v4.4 · 내역 수정 기능 추가
       </div>
       <div style="margin-top:12px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
         <button id="shareAppBtn" type="button" style="background:#10b981; color:white; border:none; padding:10px 16px; border-radius:10px; font-size:0.85rem; font-weight:600; cursor:pointer;">
@@ -260,7 +279,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
 
     <!-- 입력 폼 -->
     <div class="form-card">
-      <h3 id="formTitle">CMA 거래 추가</h3>
+      <h3 id="formTitle">CMA 거래 추가 <span id="editIndicator"></span></h3>
 
       <div class="type-tabs">
         <button class="type-tab active" data-type="deposit">입금</button>
@@ -292,7 +311,11 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
         <label>메모 (선택)</label>
         <input type="text" id="txMemo" placeholder="예: 월급 입금 / 생활비 출금">
       </div>
-      <button id="addTransactionBtn" class="btn btn-primary" type="button">추가하기</button>
+
+      <div class="form-actions">
+        <button id="addTransactionBtn" class="btn btn-primary" type="button">추가하기</button>
+        <button id="cancelEditBtn" class="btn btn-cancel hidden" type="button">취소</button>
+      </div>
     </div>
 
     <!-- 내역 (토글 가능) -->
@@ -301,11 +324,9 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
         <span id="historyTitle">CMA 거래 내역</span>
         <span class="account-total">잔액 <strong id="accountTotal">0원</strong></span>
       </h3>
-      <!-- 내역 목록을 감싸는 컨테이너 (토글 대상) -->
       <div id="historyContainer">
         <div id="historyTable"></div>
       </div>
-      <!-- 토글 버튼 -->
       <button id="toggleHistoryBtn" class="toggle-history-btn" type="button">▲ 내역 접기</button>
     </div>
 
@@ -323,6 +344,8 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
     let currentAccount = 'cma';
     let currentType = 'deposit';
     let data = loadData();
+    let editingId = null;          // 수정 중인 항목의 id
+    let editingAccount = null;     // 수정 중인 항목이 속한 계좌
 
     document.getElementById('txDate').valueAsDate = new Date();
 
@@ -332,28 +355,38 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       const shareBtn = document.getElementById('shareAppBtn');
       const excelBtn = document.getElementById('exportExcelBtn');
       const addBtn = document.getElementById('addTransactionBtn');
+      const cancelBtn = document.getElementById('cancelEditBtn');
 
       if (shareBtn) shareBtn.addEventListener('click', shareAppFile);
       if (excelBtn) excelBtn.addEventListener('click', exportToExcel);
-      if (addBtn) addBtn.addEventListener('click', addTransaction);
+      if (addBtn) addBtn.addEventListener('click', addOrUpdateTransaction);
+      if (cancelBtn) cancelBtn.addEventListener('click', cancelEdit);
 
       const backupBtn = document.getElementById('backupBtn');
       const restoreBtn = document.getElementById('restoreBtn');
       if (backupBtn) backupBtn.addEventListener('click', exportBackup);
       if (restoreBtn) restoreBtn.addEventListener('click', importBackup);
 
-      // 삭제 버튼 이벤트 위임 (click만 사용)
+      // 삭제 버튼 이벤트 위임
       const history = document.getElementById('historyTable');
       if (history) {
         history.addEventListener('click', (event) => {
           const btn = event.target.closest('.delete-btn');
-          if (!btn) return;
-          // 중복 호출 방지: 이미 처리 중이면 무시
-          if (btn.dataset.processing === '1') return;
-          btn.dataset.processing = '1';
-          deleteTransaction(btn.dataset.account, Number(btn.dataset.id));
-          // 처리 후 플래그 해제 (setTimeout으로 지연)
-          setTimeout(() => { delete btn.dataset.processing; }, 100);
+          if (btn) {
+            if (btn.dataset.processing === '1') return;
+            btn.dataset.processing = '1';
+            deleteTransaction(btn.dataset.account, Number(btn.dataset.id));
+            setTimeout(() => { delete btn.dataset.processing; }, 100);
+            return;
+          }
+          // 수정 버튼
+          const editBtn = event.target.closest('.edit-btn');
+          if (editBtn) {
+            if (editBtn.dataset.processing === '1') return;
+            editBtn.dataset.processing = '1';
+            startEdit(editBtn.dataset.account, Number(editBtn.dataset.id));
+            setTimeout(() => { delete editBtn.dataset.processing; }, 100);
+          }
         });
       }
 
@@ -362,9 +395,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       if (toggleBtn) {
         toggleBtn.addEventListener('click', toggleHistory);
       }
-
-      // iPhone 터치 보정 - click 중복 방지를 위해 touchend에서는 아무것도 하지 않음
-      // (터치 후 자연스러운 click 이벤트가 발생하도록 방치)
     }
 
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
@@ -459,6 +489,8 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
     // 계좌 탭
     document.querySelectorAll('.tab').forEach(tab => {
       tab.addEventListener('click', () => {
+        // 수정 중이면 취소
+        if (editingId) cancelEdit();
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         currentAccount = tab.dataset.account;
@@ -473,6 +505,8 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
     // 거래 유형 탭
     document.querySelectorAll('.type-tab').forEach(tab => {
       tab.addEventListener('click', () => {
+        // 수정 중이면 취소
+        if (editingId) cancelEdit();
         document.querySelectorAll('.type-tab').forEach(t => {
           t.classList.remove('active', 'withdraw', 'transfer');
         });
@@ -557,6 +591,105 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       return data[account].reduce((sum, item) => sum + item.amount, 0);
     }
 
+    // ---- 수정 관련 함수 ----
+    function startEdit(account, id) {
+      const items = data[account];
+      const item = items.find(i => i.id === id);
+      if (!item) return;
+      // 이동 항목은 수정 불가
+      if (item.type === 'transfer') {
+        alert('계좌이동 내역은 수정할 수 없습니다.\n삭제 후 다시 추가해주세요.');
+        return;
+      }
+
+      editingId = id;
+      editingAccount = account;
+
+      // 폼에 값 채우기
+      document.getElementById('txDate').value = item.date;
+      document.getElementById('txAmount').value = Math.abs(item.amount);
+      document.getElementById('txMemo').value = item.memo || '';
+
+      // 현재 타입 설정 (입금/출금)
+      const type = item.type; // 'deposit' or 'withdraw'
+      document.querySelectorAll('.type-tab').forEach(tab => {
+        tab.classList.remove('active', 'withdraw', 'transfer');
+        if (tab.dataset.type === type) {
+          tab.classList.add('active');
+          if (type === 'withdraw') tab.classList.add('withdraw');
+        }
+      });
+      currentType = type;
+      // 계좌이동 탭은 숨기기 (수정 불가)
+      document.getElementById('toAccountGroup').classList.add('hidden');
+
+      // UI 변경
+      document.getElementById('addTransactionBtn').textContent = '수정 완료';
+      document.getElementById('cancelEditBtn').classList.remove('hidden');
+      document.getElementById('editIndicator').textContent = '(수정 중)';
+      document.getElementById('formTitle').textContent = ACCOUNTS[account].name + ' 거래 수정';
+    }
+
+    function cancelEdit() {
+      editingId = null;
+      editingAccount = null;
+      // 폼 초기화
+      document.getElementById('txDate').valueAsDate = new Date();
+      document.getElementById('txAmount').value = '';
+      document.getElementById('txMemo').value = '';
+      // 타입을 입금으로 초기화 (원래 active 상태로)
+      document.querySelectorAll('.type-tab').forEach(tab => {
+        tab.classList.remove('active', 'withdraw', 'transfer');
+        if (tab.dataset.type === 'deposit') tab.classList.add('active');
+      });
+      currentType = 'deposit';
+      document.getElementById('toAccountGroup').classList.add('hidden');
+
+      document.getElementById('addTransactionBtn').textContent = '추가하기';
+      document.getElementById('cancelEditBtn').classList.add('hidden');
+      document.getElementById('editIndicator').textContent = '';
+      document.getElementById('formTitle').textContent = ACCOUNTS[currentAccount].name + ' 거래 추가';
+    }
+
+    // 추가 또는 수정 처리
+    function addOrUpdateTransaction() {
+      if (editingId) {
+        // 수정 모드
+        updateTransaction();
+      } else {
+        addTransaction();
+      }
+    }
+
+    function updateTransaction() {
+      const date = document.getElementById('txDate').value;
+      const amountStr = document.getElementById('txAmount').value.replace(/,/g, '');
+      const amount = parseInt(amountStr, 10);
+      const memo = document.getElementById('txMemo').value.trim();
+
+      if (!date) { alert('날짜를 선택해주세요.'); return; }
+      if (!amount || amount <= 0) { alert('올바른 금액을 입력해주세요.'); return; }
+
+      const account = editingAccount;
+      const items = data[account];
+      const idx = items.findIndex(i => i.id === editingId);
+      if (idx === -1) { alert('항목을 찾을 수 없습니다.'); cancelEdit(); return; }
+
+      const oldItem = items[idx];
+      // 타입은 변경 불가 (입금/출금 유지)
+      const newAmount = oldItem.amount > 0 ? amount : -amount;
+      items[idx] = {
+        ...oldItem,
+        date: date,
+        amount: newAmount,
+        memo: memo || (oldItem.amount > 0 ? '입금' : '출금')
+      };
+
+      saveData();
+      cancelEdit(); // 폼 초기화 및 버튼 복원
+      renderAll();
+    }
+
     function addTransaction() {
       const date = document.getElementById('txDate').value;
       const amountStr = document.getElementById('txAmount').value.replace(/,/g, '');
@@ -617,6 +750,9 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
 
     function deleteTransaction(account, id) {
       if (!confirm('이 내역을 삭제할까요?')) return;
+      // 수정 중인 항목이 삭제되면 취소
+      if (editingId === id) cancelEdit();
+
       const item = data[account].find(i => i.id === id);
       data[account] = data[account].filter(i => i.id !== id);
 
@@ -748,6 +884,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       const typeLabel = { deposit: '입금', withdraw: '출금', transfer: '이동' };
       const html = list.map(item => {
         const isMinus = item.amount < 0;
+        const isTransfer = item.type === 'transfer';
         return `
           <div class="history-item">
             <div class="info">
@@ -758,8 +895,10 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
               </div>
             </div>
             <div class="amount ${isMinus ? 'minus' : ''}">${isMinus ? '' : '+'}${formatMoney(item.amount)}</div>
-            <button class="btn btn-danger delete-btn" type="button"
-                    data-account="${currentAccount}" data-id="${item.id}">삭제</button>
+            <div class="action-btns">
+              ${!isTransfer ? `<button class="btn btn-edit edit-btn" data-account="${currentAccount}" data-id="${item.id}">수정</button>` : ''}
+              <button class="btn btn-danger delete-btn" data-account="${currentAccount}" data-id="${item.id}">삭제</button>
+            </div>
           </div>
         `;
       }).join('');
@@ -789,13 +928,14 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       if (btn) {
         btn.textContent = historyVisible ? '▲ 내역 접기' : '▼ 내역 펼치기';
       }
+      // 수정 모드가 유지되도록 폼 상태는 유지 (cancelEdit에서 초기화)
     }
 
     async function shareAppFile() {
       try {
         const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
         const blob = new Blob([htmlContent], { type: 'text/html' });
-        const file = new File([blob], 'Y_CapitalManager_v4.3_iPhone.html', { type: 'text/html' });
+        const file = new File([blob], 'Y_CapitalManager_v4.4_iPhone.html', { type: 'text/html' });
 
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
@@ -809,7 +949,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'Y_CapitalManager_v4.3_iPhone.html';
+        a.download = 'Y_CapitalManager_v4.4_iPhone.html';
         a.click();
         URL.revokeObjectURL(url);
         alert('파일이 다운로드되었습니다.\n카톡으로 보내주세요.');
