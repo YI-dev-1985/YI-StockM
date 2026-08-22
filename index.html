@@ -236,7 +236,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       </div>
       <div id="pwaStatus" style="display:none;margin-top:6px;font-size:0.72rem;color:#64748b;"></div>
       <div style="margin-top:8px; display:inline-block; background:#2563eb; color:white; font-size:0.75rem; font-weight:600; padding:4px 12px; border-radius:20px;">
-        v4.5
+        v4.6
       </div>
       <div style="margin-top:12px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
         <button id="shareAppBtn" type="button" style="background:#10b981; color:white; border:none; padding:10px 16px; border-radius:10px; font-size:0.85rem; font-weight:600; cursor:pointer;">
@@ -397,11 +397,9 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     
-    // PWA/홈 화면 실행 여부 확인
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
                          window.navigator.standalone === true;
 
-    // iOS이면서 standalone 모드가 아닐 때만 안내 문구 표시 (홈화면 앱에서는 숨김)
     if (isIOS && !isStandalone) {
       const notice = document.getElementById('iosNotice');
       if (notice) notice.style.display = 'block';
@@ -587,7 +585,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       return data[account].reduce((sum, item) => sum + item.amount, 0);
     }
 
-    // ---- 수정 관련 함수 ----
+    // ---- 수정 관련 함수 (입금/출금/이동 모두 지원) ----
     function startEdit(account, id) {
       const items = data[account];
       const item = items.find(i => i.id === id);
@@ -595,29 +593,51 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
         alert('항목을 찾을 수 없습니다.');
         return;
       }
-      if (item.type === 'transfer') {
-        alert('계좌이동 내역은 수정할 수 없습니다.\n삭제 후 다시 추가해주세요.');
-        return;
-      }
 
       editingId = id;
       editingAccount = account;
 
+      // 기본 정보 채우기
       document.getElementById('txDate').value = item.date;
       document.getElementById('txAmount').value = Math.abs(item.amount);
       document.getElementById('txMemo').value = item.memo || '';
 
+      // 타입 설정
       const type = item.type;
       document.querySelectorAll('.type-tab').forEach(tab => {
         tab.classList.remove('active', 'withdraw', 'transfer');
         if (tab.dataset.type === type) {
           tab.classList.add('active');
           if (type === 'withdraw') tab.classList.add('withdraw');
+          if (type === 'transfer') tab.classList.add('transfer');
         }
       });
       currentType = type;
-      document.getElementById('toAccountGroup').classList.add('hidden');
 
+      // 이동인 경우 대상 계좌 선택 필드 표시 및 값 설정
+      const toGroup = document.getElementById('toAccountGroup');
+      if (type === 'transfer') {
+        toGroup.classList.remove('hidden');
+        const select = document.getElementById('toAccount');
+        // 현재 항목이 '출발'인지 '도착'인지 확인
+        if (item.to) {
+          // 출발 계좌에서 본 항목 (to 방향)
+          select.value = item.to;
+        } else if (item.from) {
+          // 도착 계좌에서 본 항목 (from 방향) - 반대 계좌로 설정
+          // 이 경우는 from이 현재 계좌가 아니므로, from 계좌가 출발지
+          select.value = item.from;
+        }
+        // 만약 select.value가 유효하지 않으면 첫 번째 옵션으로
+        if (!select.value || !ACCOUNTS[select.value]) {
+          const firstOpt = select.querySelector('option');
+          if (firstOpt) select.value = firstOpt.value;
+        }
+      } else {
+        toGroup.classList.add('hidden');
+      }
+
+      // 버튼 및 표시 변경
       document.getElementById('addTransactionBtn').textContent = '수정 완료';
       document.getElementById('cancelEditBtn').classList.remove('hidden');
       document.getElementById('editIndicator').textContent = '(수정 중)';
@@ -671,12 +691,86 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
 
       const oldItem = items[idx];
       const newAmount = oldItem.amount > 0 ? amount : -amount;
-      items[idx] = {
-        ...oldItem,
-        date: date,
-        amount: newAmount,
-        memo: memo || (oldItem.amount > 0 ? '입금' : '출금')
-      };
+
+      if (oldItem.type === 'transfer') {
+        // 이동 항목 수정: 양쪽 계좌 모두 업데이트
+        const toAcc = document.getElementById('toAccount').value;
+        if (!toAcc || toAcc === account) {
+          alert('올바른 대상 계좌를 선택해주세요.');
+          return;
+        }
+
+        // 원래 짝이 되는 항목 찾기
+        let pairItem = null;
+        let pairAccount = null;
+        if (oldItem.to) {
+          // 현재 항목은 출발지 (account -> oldItem.to)
+          pairAccount = oldItem.to;
+          const pairItems = data[pairAccount];
+          pairItem = pairItems.find(i => 
+            i.type === 'transfer' && i.from === account && 
+            i.date === oldItem.date && Math.abs(i.amount) === Math.abs(oldItem.amount)
+          );
+        } else if (oldItem.from) {
+          // 현재 항목은 도착지 (oldItem.from -> account)
+          pairAccount = oldItem.from;
+          const pairItems = data[pairAccount];
+          pairItem = pairItems.find(i => 
+            i.type === 'transfer' && i.to === account && 
+            i.date === oldItem.date && Math.abs(i.amount) === Math.abs(oldItem.amount)
+          );
+        }
+
+        // 현재 항목 업데이트 (출발지 또는 도착지)
+        const updatedItem = {
+          ...oldItem,
+          date: date,
+          amount: -amount,  // 출발지는 음수
+          memo: memo || `→ ${ACCOUNTS[toAcc].name} 이동`,
+          to: toAcc,
+          from: undefined  // 출발지 항목에서는 from 없음
+        };
+        items[idx] = updatedItem;
+
+        // 짝 항목 업데이트 (도착지)
+        if (pairItem && pairAccount) {
+          const pairIdx = data[pairAccount].findIndex(i => i.id === pairItem.id);
+          if (pairIdx !== -1) {
+            data[pairAccount][pairIdx] = {
+              ...pairItem,
+              date: date,
+              amount: amount,  // 도착지는 양수
+              memo: memo || `${ACCOUNTS[account].name} → 이동`,
+              from: account,
+              to: undefined
+            };
+          }
+        } else {
+          // 짝이 없으면 새로 생성 (드문 경우)
+          data[toAcc].push({
+            id: Date.now() + Math.random() + 0.1,
+            date: date,
+            amount: amount,
+            memo: memo || `${ACCOUNTS[account].name} → 이동`,
+            type: 'transfer',
+            from: account
+          });
+        }
+
+        // 정렬
+        data[account].sort((a, b) => b.date.localeCompare(a.date));
+        if (toAcc) data[toAcc].sort((a, b) => b.date.localeCompare(a.date));
+
+      } else {
+        // 입금/출금 단일 항목 수정
+        items[idx] = {
+          ...oldItem,
+          date: date,
+          amount: newAmount,
+          memo: memo || (oldItem.amount > 0 ? '입금' : '출금')
+        };
+        data[account].sort((a, b) => b.date.localeCompare(a.date));
+      }
 
       saveData();
       cancelEdit();
@@ -875,7 +969,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       const typeLabel = { deposit: '입금', withdraw: '출금', transfer: '이동' };
       const html = list.map(item => {
         const isMinus = item.amount < 0;
-        const isTransfer = item.type === 'transfer';
+        // 모든 항목에 수정 버튼 표시 (이동 포함)
         return `
           <div class="history-item">
             <div class="info">
@@ -887,7 +981,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
             </div>
             <div class="amount ${isMinus ? 'minus' : ''}">${isMinus ? '' : '+'}${formatMoney(item.amount)}</div>
             <div class="action-btns">
-              ${!isTransfer ? `<button class="btn btn-edit edit-btn" data-account="${currentAccount}" data-id="${item.id}">수정</button>` : ''}
+              <button class="btn btn-edit edit-btn" data-account="${currentAccount}" data-id="${item.id}">수정</button>
               <button class="btn btn-danger delete-btn" data-account="${currentAccount}" data-id="${item.id}">삭제</button>
             </div>
           </div>
@@ -925,7 +1019,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       try {
         const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
         const blob = new Blob([htmlContent], { type: 'text/html' });
-        const file = new File([blob], 'Y_CapitalManager_v4.5_iPhone.html', { type: 'text/html' });
+        const file = new File([blob], 'Y_CapitalManager_v4.6_iPhone.html', { type: 'text/html' });
 
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
@@ -939,7 +1033,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'Y_CapitalManager_v4.5_iPhone.html';
+        a.download = 'Y_CapitalManager_v4.6_iPhone.html';
         a.click();
         URL.revokeObjectURL(url);
         alert('파일이 다운로드되었습니다.\n카톡으로 보내주세요.');
