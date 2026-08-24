@@ -27,6 +27,8 @@ data:text/html;charset=utf-8,<!DOCTYPE html>
       --pension: #f59e0b;
       --isa: #10b981;
       --danger: #ef4444;
+      --profit: #22c55e;
+      --loss: #ef4444;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { -webkit-touch-callout: none; }
@@ -77,12 +79,30 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
     }
     .summary-card .label { font-size: 0.75rem; color: var(--text-light); margin-bottom: 4px; }
     .summary-card .amount { font-size: 1.05rem; font-weight: 700; word-break: break-all; }
+    .summary-card .principal { font-size: 0.8rem; color: var(--text-light); margin-top: 2px; }
+    .summary-card .current-input {
+      width: 100%; padding: 8px 10px; margin-top: 6px;
+      border: 1px solid var(--border); border-radius: 8px;
+      font-size: 0.9rem; text-align: center;
+    }
+    .summary-card .current-input:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+    }
+    .summary-card .profit-row {
+      margin-top: 6px; font-size: 0.85rem; font-weight: 600;
+    }
+    .summary-card .profit-row .profit { color: var(--profit); }
+    .summary-card .profit-row .loss { color: var(--loss); }
     .summary-card.total {
       grid-column: 1 / -1; background: linear-gradient(135deg, #2563eb, #1d4ed8);
       color: white; border: none; padding: 16px;
     }
     .summary-card.total .label { color: rgba(255,255,255,0.85); }
     .summary-card.total .amount { font-size: 1.3rem; }
+    .summary-card.total .profit-row { color: rgba(255,255,255,0.9); }
+    .summary-card.total .profit-row .profit { color: #bbf7d0; }
+    .summary-card.total .profit-row .loss { color: #fca5a5; }
 
     .tabs {
       display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px;
@@ -236,7 +256,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       </div>
       <div id="pwaStatus" style="display:none;margin-top:6px;font-size:0.72rem;color:#64748b;"></div>
       <div style="margin-top:8px; display:inline-block; background:#2563eb; color:white; font-size:0.75rem; font-weight:600; padding:4px 12px; border-radius:20px;">
-        v4.6
+        v4.7
       </div>
       <div style="margin-top:12px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
         <button id="shareAppBtn" type="button" style="background:#10b981; color:white; border:none; padding:10px 16px; border-radius:10px; font-size:0.85rem; font-weight:600; cursor:pointer;">
@@ -266,7 +286,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       <div class="legend" id="chartLegend"></div>
     </div>
 
-    <!-- 요약 카드 -->
+    <!-- 요약 카드 (수익/손실 포함) -->
     <div class="summary-cards" id="summaryCards"></div>
 
     <!-- 계좌 탭 -->
@@ -347,9 +367,33 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
     let editingId = null;
     let editingAccount = null;
 
+    // 각 계좌의 현재 평가금액 저장 (localStorage)
+    const CURRENT_VALUE_KEY = 'currentValues_v4';
+    let currentValues = loadCurrentValues();
+
     document.getElementById('txDate').valueAsDate = new Date();
 
     let historyVisible = true;
+
+    function loadCurrentValues() {
+      try {
+        const saved = localStorage.getItem(CURRENT_VALUE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          // 모든 계좌 키가 있는지 확인
+          const defaults = { cma: 0, irp: 0, pension: 0, isa: 0 };
+          Object.keys(defaults).forEach(k => {
+            if (typeof parsed[k] !== 'number') parsed[k] = 0;
+          });
+          return parsed;
+        }
+      } catch (e) {}
+      return { cma: 0, irp: 0, pension: 0, isa: 0 };
+    }
+
+    function saveCurrentValues() {
+      localStorage.setItem(CURRENT_VALUE_KEY, JSON.stringify(currentValues));
+    }
 
     function bindButtonEvents() {
       const shareBtn = document.getElementById('shareAppBtn');
@@ -392,6 +436,19 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       if (toggleBtn) {
         toggleBtn.addEventListener('click', toggleHistory);
       }
+
+      // 평가금액 입력 이벤트 위임
+      document.getElementById('summaryCards').addEventListener('input', (event) => {
+        const input = event.target.closest('.current-value-input');
+        if (!input) return;
+        const account = input.dataset.account;
+        const val = parseFloat(input.value);
+        if (!isNaN(val) && val >= 0) {
+          currentValues[account] = val;
+          saveCurrentValues();
+          renderSummary(); // 요약만 갱신 (전체 리렌더링 방지)
+        }
+      });
     }
 
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
@@ -450,7 +507,8 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
     }
 
     function exportBackup() {
-      const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+      const backupData = { transactions: data, currentValues: currentValues };
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], {type:'application/json'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -471,7 +529,14 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
         const reader = new FileReader();
         reader.onload = () => {
           try {
-            data = normalizeData(JSON.parse(reader.result));
+            const parsed = JSON.parse(reader.result);
+            if (parsed.transactions) {
+              data = normalizeData(parsed.transactions);
+            }
+            if (parsed.currentValues) {
+              currentValues = parsed.currentValues;
+              saveCurrentValues();
+            }
             saveData();
             renderAll();
             alert('백업 데이터를 복구했습니다.');
@@ -585,7 +650,47 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       return data[account].reduce((sum, item) => sum + item.amount, 0);
     }
 
-    // ---- 수정 관련 함수 (입금/출금/이동 모두 지원) ----
+    // 원금 계산: 입금 - 출금 (이동 제외)
+    function getPrincipal(account) {
+      const items = data[account];
+      let deposit = 0, withdraw = 0;
+      items.forEach(item => {
+        if (item.type === 'deposit') deposit += item.amount;
+        else if (item.type === 'withdraw') withdraw += Math.abs(item.amount); // 음수이므로 절대값
+      });
+      return deposit - withdraw;
+    }
+
+    // 수익/손실 계산
+    function getProfit(account) {
+      const principal = getPrincipal(account);
+      const current = currentValues[account] || 0;
+      return current - principal;
+    }
+
+    function getProfitRate(account) {
+      const principal = getPrincipal(account);
+      if (principal === 0) return 0;
+      const profit = getProfit(account);
+      return (profit / principal) * 100;
+    }
+
+    // 전체 합계 계산
+    function getTotalProfit() {
+      let totalPrincipal = 0, totalCurrent = 0;
+      Object.keys(ACCOUNTS).forEach(acc => {
+        totalPrincipal += getPrincipal(acc);
+        totalCurrent += (currentValues[acc] || 0);
+      });
+      return {
+        totalPrincipal,
+        totalCurrent,
+        totalProfit: totalCurrent - totalPrincipal,
+        totalRate: totalPrincipal === 0 ? 0 : ((totalCurrent - totalPrincipal) / totalPrincipal) * 100
+      };
+    }
+
+    // ---- 수정 관련 함수 ----
     function startEdit(account, id) {
       const items = data[account];
       const item = items.find(i => i.id === id);
@@ -597,12 +702,10 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       editingId = id;
       editingAccount = account;
 
-      // 기본 정보 채우기
       document.getElementById('txDate').value = item.date;
       document.getElementById('txAmount').value = Math.abs(item.amount);
       document.getElementById('txMemo').value = item.memo || '';
 
-      // 타입 설정
       const type = item.type;
       document.querySelectorAll('.type-tab').forEach(tab => {
         tab.classList.remove('active', 'withdraw', 'transfer');
@@ -614,21 +717,15 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       });
       currentType = type;
 
-      // 이동인 경우 대상 계좌 선택 필드 표시 및 값 설정
       const toGroup = document.getElementById('toAccountGroup');
       if (type === 'transfer') {
         toGroup.classList.remove('hidden');
         const select = document.getElementById('toAccount');
-        // 현재 항목이 '출발'인지 '도착'인지 확인
         if (item.to) {
-          // 출발 계좌에서 본 항목 (to 방향)
           select.value = item.to;
         } else if (item.from) {
-          // 도착 계좌에서 본 항목 (from 방향) - 반대 계좌로 설정
-          // 이 경우는 from이 현재 계좌가 아니므로, from 계좌가 출발지
           select.value = item.from;
         }
-        // 만약 select.value가 유효하지 않으면 첫 번째 옵션으로
         if (!select.value || !ACCOUNTS[select.value]) {
           const firstOpt = select.querySelector('option');
           if (firstOpt) select.value = firstOpt.value;
@@ -637,7 +734,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
         toGroup.classList.add('hidden');
       }
 
-      // 버튼 및 표시 변경
       document.getElementById('addTransactionBtn').textContent = '수정 완료';
       document.getElementById('cancelEditBtn').classList.remove('hidden');
       document.getElementById('editIndicator').textContent = '(수정 중)';
@@ -693,18 +789,15 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       const newAmount = oldItem.amount > 0 ? amount : -amount;
 
       if (oldItem.type === 'transfer') {
-        // 이동 항목 수정: 양쪽 계좌 모두 업데이트
         const toAcc = document.getElementById('toAccount').value;
         if (!toAcc || toAcc === account) {
           alert('올바른 대상 계좌를 선택해주세요.');
           return;
         }
 
-        // 원래 짝이 되는 항목 찾기
         let pairItem = null;
         let pairAccount = null;
         if (oldItem.to) {
-          // 현재 항목은 출발지 (account -> oldItem.to)
           pairAccount = oldItem.to;
           const pairItems = data[pairAccount];
           pairItem = pairItems.find(i => 
@@ -712,7 +805,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
             i.date === oldItem.date && Math.abs(i.amount) === Math.abs(oldItem.amount)
           );
         } else if (oldItem.from) {
-          // 현재 항목은 도착지 (oldItem.from -> account)
           pairAccount = oldItem.from;
           const pairItems = data[pairAccount];
           pairItem = pairItems.find(i => 
@@ -721,32 +813,29 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
           );
         }
 
-        // 현재 항목 업데이트 (출발지 또는 도착지)
         const updatedItem = {
           ...oldItem,
           date: date,
-          amount: -amount,  // 출발지는 음수
+          amount: -amount,
           memo: memo || `→ ${ACCOUNTS[toAcc].name} 이동`,
           to: toAcc,
-          from: undefined  // 출발지 항목에서는 from 없음
+          from: undefined
         };
         items[idx] = updatedItem;
 
-        // 짝 항목 업데이트 (도착지)
         if (pairItem && pairAccount) {
           const pairIdx = data[pairAccount].findIndex(i => i.id === pairItem.id);
           if (pairIdx !== -1) {
             data[pairAccount][pairIdx] = {
               ...pairItem,
               date: date,
-              amount: amount,  // 도착지는 양수
+              amount: amount,
               memo: memo || `${ACCOUNTS[account].name} → 이동`,
               from: account,
               to: undefined
             };
           }
         } else {
-          // 짝이 없으면 새로 생성 (드문 경우)
           data[toAcc].push({
             id: Date.now() + Math.random() + 0.1,
             date: date,
@@ -757,12 +846,10 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
           });
         }
 
-        // 정렬
         data[account].sort((a, b) => b.date.localeCompare(a.date));
         if (toAcc) data[toAcc].sort((a, b) => b.date.localeCompare(a.date));
 
       } else {
-        // 입금/출금 단일 항목 수정
         items[idx] = {
           ...oldItem,
           date: date,
@@ -922,36 +1009,51 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
     }
 
     function renderSummary() {
-      const totals = {
-        cma: getBalance('cma'),
-        irp: getBalance('irp'),
-        pension: getBalance('pension'),
-        isa: getBalance('isa')
-      };
-      const grand = totals.cma + totals.irp + totals.pension + totals.isa;
+      // 각 계좌별 원금, 평가금액, 수익/손실 계산
+      const accountKeys = ['cma', 'irp', 'pension', 'isa'];
+      let html = '';
 
-      document.getElementById('summaryCards').innerHTML = `
-        <div class="summary-card">
-          <div class="label"><span class="color-dot" style="background:#3b82f6"></span>CMA</div>
-          <div class="amount">${formatMoney(totals.cma)}</div>
-        </div>
-        <div class="summary-card">
-          <div class="label"><span class="color-dot" style="background:#8b5cf6"></span>IRP</div>
-          <div class="amount">${formatMoney(totals.irp)}</div>
-        </div>
-        <div class="summary-card">
-          <div class="label"><span class="color-dot" style="background:#f59e0b"></span>연금저축</div>
-          <div class="amount">${formatMoney(totals.pension)}</div>
-        </div>
-        <div class="summary-card">
-          <div class="label"><span class="color-dot" style="background:#10b981"></span>ISA</div>
-          <div class="amount">${formatMoney(totals.isa)}</div>
-        </div>
+      accountKeys.forEach(acc => {
+        const principal = getPrincipal(acc);
+        const current = currentValues[acc] || 0;
+        const profit = getProfit(acc);
+        const rate = getProfitRate(acc);
+        const profitClass = profit >= 0 ? 'profit' : 'loss';
+        const sign = profit >= 0 ? '+' : '';
+        const rateSign = rate >= 0 ? '+' : '';
+
+        html += `
+          <div class="summary-card">
+            <div class="label"><span class="color-dot" style="background:${ACCOUNTS[acc].color}"></span>${ACCOUNTS[acc].name}</div>
+            <div class="amount">${formatMoney(current)}</div>
+            <div class="principal">원금 ${formatMoney(principal)}</div>
+            <input type="number" class="current-value-input" data-account="${acc}" 
+                   value="${current}" placeholder="현재 평가금액" min="0" step="1000">
+            <div class="profit-row">
+              <span class="${profitClass}">${sign}${formatMoney(profit)} (${rateSign}${rate.toFixed(1)}%)</span>
+            </div>
+          </div>
+        `;
+      });
+
+      // 전체 합계
+      const total = getTotalProfit();
+      const profitClass = total.totalProfit >= 0 ? 'profit' : 'loss';
+      const sign = total.totalProfit >= 0 ? '+' : '';
+      const rateSign = total.totalRate >= 0 ? '+' : '';
+
+      html += `
         <div class="summary-card total">
           <div class="label">전체 원금 합계</div>
-          <div class="amount">${formatMoney(grand)}</div>
+          <div class="amount">${formatMoney(total.totalPrincipal)}</div>
+          <div style="font-size:0.9rem; margin-top:4px;">전체 평가금액 ${formatMoney(total.totalCurrent)}</div>
+          <div class="profit-row">
+            <span class="${profitClass}">${sign}${formatMoney(total.totalProfit)} (${rateSign}${total.totalRate.toFixed(1)}%)</span>
+          </div>
         </div>
       `;
+
+      document.getElementById('summaryCards').innerHTML = html;
     }
 
     function renderHistory() {
@@ -969,7 +1071,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       const typeLabel = { deposit: '입금', withdraw: '출금', transfer: '이동' };
       const html = list.map(item => {
         const isMinus = item.amount < 0;
-        // 모든 항목에 수정 버튼 표시 (이동 포함)
         return `
           <div class="history-item">
             <div class="info">
@@ -1019,7 +1120,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       try {
         const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
         const blob = new Blob([htmlContent], { type: 'text/html' });
-        const file = new File([blob], 'Y_CapitalManager_v4.6_iPhone.html', { type: 'text/html' });
+        const file = new File([blob], 'Y_CapitalManager_v4.7_iPhone.html', { type: 'text/html' });
 
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
@@ -1033,7 +1134,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'Y_CapitalManager_v4.6_iPhone.html';
+        a.download = 'Y_CapitalManager_v4.7_iPhone.html';
         a.click();
         URL.revokeObjectURL(url);
         alert('파일이 다운로드되었습니다.\n카톡으로 보내주세요.');
