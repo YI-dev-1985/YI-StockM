@@ -256,7 +256,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       </div>
       <div id="pwaStatus" style="display:none;margin-top:6px;font-size:0.72rem;color:#64748b;"></div>
       <div style="margin-top:8px; display:inline-block; background:#2563eb; color:white; font-size:0.75rem; font-weight:600; padding:4px 12px; border-radius:20px;">
-        v4.8.1
+        v4.8.2
       </div>
       <div style="margin-top:12px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
         <button id="shareAppBtn" type="button" style="background:#10b981; color:white; border:none; padding:10px 16px; border-radius:10px; font-size:0.85rem; font-weight:600; cursor:pointer;">
@@ -512,6 +512,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
+    // ★★★ 개선된 복구 함수 (모든 버전 호환) ★★★
     function importBackup() {
       const input = document.createElement('input');
       input.type = 'file';
@@ -523,27 +524,70 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
         reader.onload = () => {
           try {
             const parsed = JSON.parse(reader.result);
-            
-            // 거래 데이터 복구 (없으면 빈 객체)
-            if (parsed.transactions) {
-              data = normalizeData(parsed.transactions);
-            } else {
-              data = emptyData();
+            let restoredData = null;
+            let restoredTotalValue = 0;
+
+            // 1. 신규 구조: { transactions: {...}, totalCurrentValue: 숫자 }
+            if (parsed.transactions && typeof parsed.transactions === 'object') {
+              restoredData = normalizeData(parsed.transactions);
+              if (parsed.totalCurrentValue !== undefined && !isNaN(parsed.totalCurrentValue)) {
+                restoredTotalValue = parsed.totalCurrentValue;
+              }
+            }
+            // 2. v4.7 구조: { transactions: {...}, currentValues: {cma:..., irp:...} } (각 계좌 평가액 합산)
+            else if (parsed.transactions && typeof parsed.transactions === 'object') {
+              // 위에서 걸러졌지만 혹시 모르니 재확인
             }
             
-            // 전체 평가금액 복구 (없으면 0으로 초기화)
-            if (parsed.totalCurrentValue !== undefined && !isNaN(parsed.totalCurrentValue)) {
-              totalCurrentValue = parsed.totalCurrentValue;
-            } else {
-              // 이전 버전 백업 파일이면 0으로 설정
-              totalCurrentValue = 0;
+            // 3. v4.6 이하 구조: { cma: [], irp: [], pension: [], isa: [] } (최상위에 계좌 키가 바로 있음)
+            if (!restoredData) {
+              const hasAccountKeys = ['cma', 'irp', 'pension', 'isa'].some(k => Array.isArray(parsed[k]));
+              if (hasAccountKeys) {
+                restoredData = normalizeData(parsed);
+                // v4.7에서 각 계좌 평가액이 currentValues에 있었을 수 있음
+                if (parsed.currentValues && typeof parsed.currentValues === 'object') {
+                  let sum = 0;
+                  Object.keys(parsed.currentValues).forEach(k => {
+                    if (typeof parsed.currentValues[k] === 'number') sum += parsed.currentValues[k];
+                  });
+                  restoredTotalValue = sum;
+                }
+                // 혹시 totalCurrentValue가 있다면 우선 적용
+                if (parsed.totalCurrentValue !== undefined && !isNaN(parsed.totalCurrentValue)) {
+                  restoredTotalValue = parsed.totalCurrentValue;
+                }
+              }
             }
+
+            // 4. data 키로 감싸진 경우 (드물게 발생)
+            if (!restoredData && parsed.data && typeof parsed.data === 'object') {
+              const hasAccountKeys = ['cma', 'irp', 'pension', 'isa'].some(k => Array.isArray(parsed.data[k]));
+              if (hasAccountKeys) {
+                restoredData = normalizeData(parsed.data);
+              }
+              if (parsed.totalCurrentValue !== undefined && !isNaN(parsed.totalCurrentValue)) {
+                restoredTotalValue = parsed.totalCurrentValue;
+              }
+            }
+
+            // 복구된 데이터가 없으면 오류
+            if (!restoredData) {
+              alert('백업 파일에서 거래 내역을 찾을 수 없습니다.\n파일이 손상되었거나 지원되지 않는 형식입니다.');
+              return;
+            }
+
+            // 데이터 적용
+            data = restoredData;
+            totalCurrentValue = restoredTotalValue || 0;
             saveTotalCurrentValue();
             saveData();
             renderAll();
-            alert('백업 데이터를 복구했습니다.');
+            alert('✅ 백업 데이터를 성공적으로 복구했습니다!\n' + 
+                  '📊 총 거래 내역: ' + (data.cma.length + data.irp.length + data.pension.length + data.isa.length) + '건\n' +
+                  '💰 평가금액: ' + formatMoney(totalCurrentValue));
+
           } catch (e) {
-            alert('백업 파일을 읽을 수 없습니다. 파일이 손상되었거나 잘못된 형식입니다.');
+            alert('❌ 백업 파일을 읽을 수 없습니다.\n파일이 손상되었거나 잘못된 형식입니다.\n오류: ' + e.message);
             console.error(e);
           }
         };
@@ -1099,7 +1143,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       try {
         const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
         const blob = new Blob([htmlContent], { type: 'text/html' });
-        const file = new File([blob], 'Y_CapitalManager_v4.8.1_iPhone.html', { type: 'text/html' });
+        const file = new File([blob], 'Y_CapitalManager_v4.8.2_iPhone.html', { type: 'text/html' });
 
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
@@ -1113,7 +1157,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'Y_CapitalManager_v4.8.1_iPhone.html';
+        a.download = 'Y_CapitalManager_v4.8.2_iPhone.html';
         a.click();
         URL.revokeObjectURL(url);
         alert('파일이 다운로드되었습니다.\n카톡으로 보내주세요.');
