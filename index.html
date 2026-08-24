@@ -80,29 +80,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
     .summary-card .label { font-size: 0.75rem; color: var(--text-light); margin-bottom: 4px; }
     .summary-card .amount { font-size: 1.05rem; font-weight: 700; word-break: break-all; }
     .summary-card .principal { font-size: 0.8rem; color: var(--text-light); margin-top: 2px; }
-    .summary-card .profit-row {
-      margin-top: 6px; font-size: 0.85rem; font-weight: 600;
-    }
-    .summary-card .profit-row .profit { color: var(--profit); }
-    .summary-card .profit-row .loss { color: var(--loss); }
-    .summary-card.total {
-      grid-column: 1 / -1; background: linear-gradient(135deg, #2563eb, #1d4ed8);
-      color: white; border: none; padding: 16px;
-    }
-    .summary-card.total .label { color: rgba(255,255,255,0.85); }
-    .summary-card.total .amount { font-size: 1.3rem; }
-    .summary-card.total .profit-row { color: rgba(255,255,255,0.9); }
-    .summary-card.total .profit-row .profit { color: #bbf7d0; }
-    .summary-card.total .profit-row .loss { color: #fca5a5; }
-    .summary-card .current-input {
-      width: 100%; padding: 8px 10px; margin-top: 6px;
-      border: 1px solid var(--border); border-radius: 8px;
-      font-size: 0.9rem; text-align: center;
-    }
-    .summary-card .current-input:focus {
-      outline: none; border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
-    }
 
     .tabs {
       display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px;
@@ -229,6 +206,48 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       font-size: 0.8rem; color: var(--primary); font-weight: 600;
       margin-left: 8px;
     }
+
+    /* 평가금액 입력 하단 영역 */
+    .total-evaluation-area {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+    .total-evaluation-area .label {
+      font-size: 0.85rem;
+      color: var(--text-light);
+      margin-bottom: 6px;
+    }
+    .total-evaluation-area .current-input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 1rem;
+      text-align: center;
+      background: #fff;
+    }
+    .total-evaluation-area .current-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+    }
+    .total-evaluation-area .result-row {
+      margin-top: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    .total-evaluation-area .result-row .profit { color: var(--profit); }
+    .total-evaluation-area .result-row .loss { color: var(--loss); }
+    .total-evaluation-area .sub-info {
+      font-size: 0.85rem;
+      color: var(--text-light);
+      margin-top: 4px;
+    }
   </style>
 
 <script id="pwa-manifest" type="application/manifest+json">
@@ -256,7 +275,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       </div>
       <div id="pwaStatus" style="display:none;margin-top:6px;font-size:0.72rem;color:#64748b;"></div>
       <div style="margin-top:8px; display:inline-block; background:#2563eb; color:white; font-size:0.75rem; font-weight:600; padding:4px 12px; border-radius:20px;">
-        v4.8.2
+        v4.8.3
       </div>
       <div style="margin-top:12px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
         <button id="shareAppBtn" type="button" style="background:#10b981; color:white; border:none; padding:10px 16px; border-radius:10px; font-size:0.85rem; font-weight:600; cursor:pointer;">
@@ -286,7 +305,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       <div class="legend" id="chartLegend"></div>
     </div>
 
-    <!-- 요약 카드 (수익/손실 포함) -->
+    <!-- 요약 카드 (계좌별 순입금만 표시) -->
     <div class="summary-cards" id="summaryCards"></div>
 
     <!-- 계좌 탭 -->
@@ -350,6 +369,21 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       <button id="toggleHistoryBtn" class="toggle-history-btn" type="button">▲ 내역 접기</button>
     </div>
 
+    <!-- ★ 하단 고정 평가금액 입력 및 수익/손실 표시 ★ -->
+    <div class="total-evaluation-area" id="totalEvaluationArea">
+      <div class="label">📊 전체 평가금액을 입력하세요</div>
+      <input type="number" class="current-input" id="totalCurrentInput" 
+             placeholder="전체 평가금액 (예: 10000000)" min="0" step="1000">
+      <div class="result-row" id="profitDisplay">
+        <span>원금 <span id="displayPrincipal">0원</span></span>
+        <span style="margin:0 8px;">|</span>
+        <span>평가 <span id="displayCurrent">0원</span></span>
+        <span style="margin:0 8px;">|</span>
+        <span id="displayProfitLoss">0원 (0.0%)</span>
+      </div>
+      <div class="sub-info">※ 평가금액 입력 시 자동으로 수익/손실이 계산됩니다</div>
+    </div>
+
     <div class="footer">데이터는 이 기기에만 저장됩니다</div>
   </div>
 
@@ -367,7 +401,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
     let editingId = null;
     let editingAccount = null;
 
-    // 전체 평가금액 저장 (localStorage)
     const TOTAL_CURRENT_VALUE_KEY = 'totalCurrentValue_v4';
     let totalCurrentValue = loadTotalCurrentValue();
 
@@ -431,17 +464,20 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
         toggleBtn.addEventListener('click', toggleHistory);
       }
 
-      // 전체 평가금액 입력 이벤트
-      document.getElementById('summaryCards').addEventListener('input', (event) => {
-        const input = event.target.closest('.total-current-value-input');
-        if (!input) return;
-        const val = parseFloat(input.value);
-        if (!isNaN(val) && val >= 0) {
-          totalCurrentValue = val;
-          saveTotalCurrentValue();
-          renderSummary();
-        }
-      });
+      // ★ 평가금액 입력 이벤트 (input 한 번에 업데이트 + 포커스 유지) ★
+      const currentInput = document.getElementById('totalCurrentInput');
+      if (currentInput) {
+        currentInput.addEventListener('input', (event) => {
+          const val = parseFloat(event.target.value);
+          if (!isNaN(val) && val >= 0) {
+            totalCurrentValue = val;
+            saveTotalCurrentValue();
+            updateProfitDisplay(); // 전체 수익/손실 영역만 업데이트
+          }
+        });
+        // 초기값 설정
+        currentInput.value = totalCurrentValue || '';
+      }
     }
 
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
@@ -512,7 +548,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
-    // ★★★ 개선된 복구 함수 (모든 버전 호환) ★★★
+    // ★ 개선된 복구 함수 (모든 버전 호환) ★
     function importBackup() {
       const input = document.createElement('input');
       input.type = 'file';
@@ -534,12 +570,8 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
                 restoredTotalValue = parsed.totalCurrentValue;
               }
             }
-            // 2. v4.7 구조: { transactions: {...}, currentValues: {cma:..., irp:...} } (각 계좌 평가액 합산)
-            else if (parsed.transactions && typeof parsed.transactions === 'object') {
-              // 위에서 걸러졌지만 혹시 모르니 재확인
-            }
             
-            // 3. v4.6 이하 구조: { cma: [], irp: [], pension: [], isa: [] } (최상위에 계좌 키가 바로 있음)
+            // 2. v4.6 이하 구조: { cma: [], irp: [], pension: [], isa: [] }
             if (!restoredData) {
               const hasAccountKeys = ['cma', 'irp', 'pension', 'isa'].some(k => Array.isArray(parsed[k]));
               if (hasAccountKeys) {
@@ -552,14 +584,13 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
                   });
                   restoredTotalValue = sum;
                 }
-                // 혹시 totalCurrentValue가 있다면 우선 적용
                 if (parsed.totalCurrentValue !== undefined && !isNaN(parsed.totalCurrentValue)) {
                   restoredTotalValue = parsed.totalCurrentValue;
                 }
               }
             }
 
-            // 4. data 키로 감싸진 경우 (드물게 발생)
+            // 3. data 래퍼 구조
             if (!restoredData && parsed.data && typeof parsed.data === 'object') {
               const hasAccountKeys = ['cma', 'irp', 'pension', 'isa'].some(k => Array.isArray(parsed.data[k]));
               if (hasAccountKeys) {
@@ -570,18 +601,19 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
               }
             }
 
-            // 복구된 데이터가 없으면 오류
             if (!restoredData) {
               alert('백업 파일에서 거래 내역을 찾을 수 없습니다.\n파일이 손상되었거나 지원되지 않는 형식입니다.');
               return;
             }
 
-            // 데이터 적용
             data = restoredData;
             totalCurrentValue = restoredTotalValue || 0;
             saveTotalCurrentValue();
             saveData();
             renderAll();
+            // 입력 필드 값 동기화
+            const inputEl = document.getElementById('totalCurrentInput');
+            if (inputEl) inputEl.value = totalCurrentValue || '';
             alert('✅ 백업 데이터를 성공적으로 복구했습니다!\n' + 
                   '📊 총 거래 내역: ' + (data.cma.length + data.irp.length + data.pension.length + data.isa.length) + '건\n' +
                   '💰 평가금액: ' + formatMoney(totalCurrentValue));
@@ -697,7 +729,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       return data[account].reduce((sum, item) => sum + item.amount, 0);
     }
 
-    // 전체 원금 계산: 모든 계좌의 입금 - 출금 (이동 제외)
+    // 전체 원금 계산
     function getTotalPrincipal() {
       let deposit = 0, withdraw = 0;
       Object.keys(ACCOUNTS).forEach(acc => {
@@ -719,6 +751,21 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
         profit: current - principal,
         rate: principal === 0 ? 0 : ((current - principal) / principal) * 100
       };
+    }
+
+    // ★ 평가금액 표시만 업데이트 (전체 렌더링 없음) ★
+    function updateProfitDisplay() {
+      const total = getTotalProfit();
+      const profitClass = total.profit >= 0 ? 'profit' : 'loss';
+      const sign = total.profit >= 0 ? '+' : '';
+      const rateSign = total.rate >= 0 ? '+' : '';
+
+      document.getElementById('displayPrincipal').textContent = formatMoney(total.principal);
+      document.getElementById('displayCurrent').textContent = formatMoney(total.current);
+      
+      const profitEl = document.getElementById('displayProfitLoss');
+      profitEl.textContent = `${sign}${formatMoney(total.profit)} (${rateSign}${total.rate.toFixed(1)}%)`;
+      profitEl.className = profitClass;
     }
 
     // ---- 수정 관련 함수 (입금/출금/이동 모두 지원) ----
@@ -1040,7 +1087,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
     }
 
     function renderSummary() {
-      // 각 계좌별 순입금 표시
       const accountKeys = ['cma', 'irp', 'pension', 'isa'];
       let html = '';
 
@@ -1054,27 +1100,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
           </div>
         `;
       });
-
-      // 전체 합계 (평가금액 입력 필드 포함)
-      const total = getTotalProfit();
-      const profitClass = total.profit >= 0 ? 'profit' : 'loss';
-      const sign = total.profit >= 0 ? '+' : '';
-      const rateSign = total.rate >= 0 ? '+' : '';
-
-      html += `
-        <div class="summary-card total">
-          <div class="label">전체 원금 합계</div>
-          <div class="amount">${formatMoney(total.principal)}</div>
-          <div style="font-size:0.9rem; margin-top:4px;">
-            <input type="number" class="current-input total-current-value-input" 
-                   value="${total.current}" placeholder="전체 평가금액 입력" min="0" step="1000">
-          </div>
-          <div style="font-size:0.85rem; margin-top:4px;">전체 평가금액 ${formatMoney(total.current)}</div>
-          <div class="profit-row">
-            <span class="${profitClass}">${sign}${formatMoney(total.profit)} (${rateSign}${total.rate.toFixed(1)}%)</span>
-          </div>
-        </div>
-      `;
 
       document.getElementById('summaryCards').innerHTML = html;
     }
@@ -1133,9 +1158,15 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       renderSummary();
       renderHistory();
       applyHistoryVisibility();
+      updateProfitDisplay(); // 하단 평가영역 업데이트
       const btn = document.getElementById('toggleHistoryBtn');
       if (btn) {
         btn.textContent = historyVisible ? '▲ 내역 접기' : '▼ 내역 펼치기';
+      }
+      // 입력 필드 동기화
+      const inputEl = document.getElementById('totalCurrentInput');
+      if (inputEl && inputEl.value !== String(totalCurrentValue)) {
+        inputEl.value = totalCurrentValue || '';
       }
     }
 
@@ -1143,7 +1174,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       try {
         const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
         const blob = new Blob([htmlContent], { type: 'text/html' });
-        const file = new File([blob], 'Y_CapitalManager_v4.8.2_iPhone.html', { type: 'text/html' });
+        const file = new File([blob], 'Y_CapitalManager_v4.8.3_iPhone.html', { type: 'text/html' });
 
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
@@ -1157,7 +1188,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'Y_CapitalManager_v4.8.2_iPhone.html';
+        a.download = 'Y_CapitalManager_v4.8.3_iPhone.html';
         a.click();
         URL.revokeObjectURL(url);
         alert('파일이 다운로드되었습니다.\n카톡으로 보내주세요.');
