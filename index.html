@@ -269,13 +269,8 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
     <header>
       <h1>주식 원금 입금 정리</h1>
       <p>CMA · IRP · 연금저축 · ISA</p>
-      <div id="iosNotice" style="display:none;margin-top:8px;padding:8px 10px;border-radius:10px;background:#fff7ed;color:#9a3412;font-size:0.75rem;">
-        iPhone에서는 Safari에서 열고 <b>공유 → 홈 화면에 추가</b>하면 앱처럼 사용할 수 있습니다.<br>
-        데이터는 이 기기의 브라우저 저장소에 보관됩니다.
-      </div>
-      <div id="pwaStatus" style="display:none;margin-top:6px;font-size:0.72rem;color:#64748b;"></div>
       <div style="margin-top:8px; display:inline-block; background:#2563eb; color:white; font-size:0.75rem; font-weight:600; padding:4px 12px; border-radius:20px;">
-        v4.8.3
+        v4.8.4
       </div>
       <div style="margin-top:12px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
         <button id="shareAppBtn" type="button" style="background:#10b981; color:white; border:none; padding:10px 16px; border-radius:10px; font-size:0.85rem; font-weight:600; cursor:pointer;">
@@ -464,7 +459,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
         toggleBtn.addEventListener('click', toggleHistory);
       }
 
-      // ★ 평가금액 입력 이벤트 (input 한 번에 업데이트 + 포커스 유지) ★
       const currentInput = document.getElementById('totalCurrentInput');
       if (currentInput) {
         currentInput.addEventListener('input', (event) => {
@@ -472,34 +466,14 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
           if (!isNaN(val) && val >= 0) {
             totalCurrentValue = val;
             saveTotalCurrentValue();
-            updateProfitDisplay(); // 전체 수익/손실 영역만 업데이트
+            updateProfitDisplay();
           }
         });
-        // 초기값 설정
         currentInput.value = totalCurrentValue || '';
       }
     }
 
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
-                         window.navigator.standalone === true;
-
-    if (isIOS && !isStandalone) {
-      const notice = document.getElementById('iosNotice');
-      if (notice) notice.style.display = 'block';
-    }
-
     function initPWA() {
-      const status = document.getElementById('pwaStatus');
-      if (status) {
-        status.style.display = 'block';
-        status.textContent = isStandalone
-          ? '✓ 홈 화면 앱 모드로 실행 중'
-          : 'Safari 실행 모드 · 홈 화면에 추가하면 앱처럼 사용할 수 있습니다.';
-      }
-
       if (location.protocol === 'file:') {
         console.log('로컬 파일 실행: 서비스 워커 생략');
         return;
@@ -548,7 +522,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
-    // ★ 개선된 복구 함수 (모든 버전 호환) ★
     function importBackup() {
       const input = document.createElement('input');
       input.type = 'file';
@@ -563,7 +536,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
             let restoredData = null;
             let restoredTotalValue = 0;
 
-            // 1. 신규 구조: { transactions: {...}, totalCurrentValue: 숫자 }
             if (parsed.transactions && typeof parsed.transactions === 'object') {
               restoredData = normalizeData(parsed.transactions);
               if (parsed.totalCurrentValue !== undefined && !isNaN(parsed.totalCurrentValue)) {
@@ -571,12 +543,10 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
               }
             }
             
-            // 2. v4.6 이하 구조: { cma: [], irp: [], pension: [], isa: [] }
             if (!restoredData) {
               const hasAccountKeys = ['cma', 'irp', 'pension', 'isa'].some(k => Array.isArray(parsed[k]));
               if (hasAccountKeys) {
                 restoredData = normalizeData(parsed);
-                // v4.7에서 각 계좌 평가액이 currentValues에 있었을 수 있음
                 if (parsed.currentValues && typeof parsed.currentValues === 'object') {
                   let sum = 0;
                   Object.keys(parsed.currentValues).forEach(k => {
@@ -590,7 +560,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
               }
             }
 
-            // 3. data 래퍼 구조
             if (!restoredData && parsed.data && typeof parsed.data === 'object') {
               const hasAccountKeys = ['cma', 'irp', 'pension', 'isa'].some(k => Array.isArray(parsed.data[k]));
               if (hasAccountKeys) {
@@ -611,7 +580,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
             saveTotalCurrentValue();
             saveData();
             renderAll();
-            // 입력 필드 값 동기화
             const inputEl = document.getElementById('totalCurrentInput');
             if (inputEl) inputEl.value = totalCurrentValue || '';
             alert('✅ 백업 데이터를 성공적으로 복구했습니다!\n' + 
@@ -729,7 +697,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       return data[account].reduce((sum, item) => sum + item.amount, 0);
     }
 
-    // 전체 원금 계산
     function getTotalPrincipal() {
       let deposit = 0, withdraw = 0;
       Object.keys(ACCOUNTS).forEach(acc => {
@@ -741,7 +708,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       return deposit - withdraw;
     }
 
-    // 전체 수익/손실 계산
     function getTotalProfit() {
       const principal = getTotalPrincipal();
       const current = totalCurrentValue || 0;
@@ -753,7 +719,6 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       };
     }
 
-    // ★ 평가금액 표시만 업데이트 (전체 렌더링 없음) ★
     function updateProfitDisplay() {
       const total = getTotalProfit();
       const profitClass = total.profit >= 0 ? 'profit' : 'loss';
@@ -768,7 +733,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       profitEl.className = profitClass;
     }
 
-    // ---- 수정 관련 함수 (입금/출금/이동 모두 지원) ----
+    // ---- 수정 관련 함수 ----
     function startEdit(account, id) {
       const items = data[account];
       const item = items.find(i => i.id === id);
@@ -1158,12 +1123,11 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       renderSummary();
       renderHistory();
       applyHistoryVisibility();
-      updateProfitDisplay(); // 하단 평가영역 업데이트
+      updateProfitDisplay();
       const btn = document.getElementById('toggleHistoryBtn');
       if (btn) {
         btn.textContent = historyVisible ? '▲ 내역 접기' : '▼ 내역 펼치기';
       }
-      // 입력 필드 동기화
       const inputEl = document.getElementById('totalCurrentInput');
       if (inputEl && inputEl.value !== String(totalCurrentValue)) {
         inputEl.value = totalCurrentValue || '';
@@ -1174,7 +1138,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       try {
         const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
         const blob = new Blob([htmlContent], { type: 'text/html' });
-        const file = new File([blob], 'Y_CapitalManager_v4.8.3_iPhone.html', { type: 'text/html' });
+        const file = new File([blob], 'Y_CapitalManager_v4.8.4_iPhone.html', { type: 'text/html' });
 
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
@@ -1188,7 +1152,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'Y_CapitalManager_v4.8.3_iPhone.html';
+        a.download = 'Y_CapitalManager_v4.8.4_iPhone.html';
         a.click();
         URL.revokeObjectURL(url);
         alert('파일이 다운로드되었습니다.\n카톡으로 보내주세요.');
