@@ -256,7 +256,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       </div>
       <div id="pwaStatus" style="display:none;margin-top:6px;font-size:0.72rem;color:#64748b;"></div>
       <div style="margin-top:8px; display:inline-block; background:#2563eb; color:white; font-size:0.75rem; font-weight:600; padding:4px 12px; border-radius:20px;">
-        v4.8
+        v4.8.1
       </div>
       <div style="margin-top:12px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
         <button id="shareAppBtn" type="button" style="background:#10b981; color:white; border:none; padding:10px 16px; border-radius:10px; font-size:0.85rem; font-weight:600; cursor:pointer;">
@@ -523,18 +523,28 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
         reader.onload = () => {
           try {
             const parsed = JSON.parse(reader.result);
+            
+            // 거래 데이터 복구 (없으면 빈 객체)
             if (parsed.transactions) {
               data = normalizeData(parsed.transactions);
+            } else {
+              data = emptyData();
             }
-            if (parsed.totalCurrentValue !== undefined) {
+            
+            // 전체 평가금액 복구 (없으면 0으로 초기화)
+            if (parsed.totalCurrentValue !== undefined && !isNaN(parsed.totalCurrentValue)) {
               totalCurrentValue = parsed.totalCurrentValue;
-              saveTotalCurrentValue();
+            } else {
+              // 이전 버전 백업 파일이면 0으로 설정
+              totalCurrentValue = 0;
             }
+            saveTotalCurrentValue();
             saveData();
             renderAll();
             alert('백업 데이터를 복구했습니다.');
           } catch (e) {
-            alert('백업 파일을 읽을 수 없습니다.');
+            alert('백업 파일을 읽을 수 없습니다. 파일이 손상되었거나 잘못된 형식입니다.');
+            console.error(e);
           }
         };
         reader.readAsText(file);
@@ -986,7 +996,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
     }
 
     function renderSummary() {
-      // 각 계좌별 원금, 잔액 표시 (평가금액 입력은 전체만)
+      // 각 계좌별 순입금 표시
       const accountKeys = ['cma', 'irp', 'pension', 'isa'];
       let html = '';
 
@@ -1089,7 +1099,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
       try {
         const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
         const blob = new Blob([htmlContent], { type: 'text/html' });
-        const file = new File([blob], 'Y_CapitalManager_v4.8_iPhone.html', { type: 'text/html' });
+        const file = new File([blob], 'Y_CapitalManager_v4.8.1_iPhone.html', { type: 'text/html' });
 
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
@@ -1103,7 +1113,7 @@ button { touch-action: manipulation; -webkit-user-select: none; user-select: non
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'Y_CapitalManager_v4.8_iPhone.html';
+        a.download = 'Y_CapitalManager_v4.8.1_iPhone.html';
         a.click();
         URL.revokeObjectURL(url);
         alert('파일이 다운로드되었습니다.\n카톡으로 보내주세요.');
